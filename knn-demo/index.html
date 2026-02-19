@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KNN Demo — Apple vs Orange</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #12121a;
+    --border: #1e1e2e;
+    --accent: #00ffe0;
+    --apple: #ff4d6d;
+    --orange: #ff9500;
+    --text: #e0e0f0;
+    --muted: #555570;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 14px;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.6rem, 4vw, 2.8rem);
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -1px;
+    text-align: center;
+  }
+  .subtitle { color: var(--muted); font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; text-align: center; }
+
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+    width: 100%;
+    max-width: 980px;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0d0d18;
+    aspect-ratio: 1;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .canvas-label {
+    position: absolute; top: 10px; left: 12px;
+    font-size: 0.58rem; letter-spacing: 2px; color: var(--muted); text-transform: uppercase;
+  }
+  .drag-hint {
+    position: absolute; bottom: 10px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem; color: var(--muted); white-space: nowrap;
+    background: rgba(10,10,15,0.8); padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .panel-title {
+    font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px;
+  }
+
+  .k-display {
+    font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800;
+    color: var(--accent); text-align: center; line-height: 1;
+  }
+  .k-sub { font-size: 0.6rem; color: var(--muted); text-align: center; margin-bottom: 8px; }
+  input[type=range] {
+    -webkit-appearance: none; width: 100%; height: 4px;
+    border-radius: 2px; background: var(--border); outline: none; margin: 8px 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--bg);
+  }
+  .k-hint { font-size: 0.6rem; text-align: center; }
+
+  /* Coords panel */
+  .coord-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; background: #0d0d18; border-radius: 8px;
+    border: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .coord-label { font-size: 0.65rem; color: var(--muted); }
+  .coord-val { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+  /* Votes */
+  .vote-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    background: #0d0d18; margin-bottom: 8px;
+    border: 1px solid var(--border);
+    transition: border-color 0.3s;
+  }
+  .vote-row.winner { border-color: currentColor; }
+  .vote-emoji { font-size: 1.2rem; }
+  .vote-label { flex: 1; font-size: 0.72rem; }
+  .vote-count { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; }
+  .vote-bar-wrap { width: 100%; height: 5px; background: var(--border); border-radius: 3px; margin-top: 5px; }
+  .vote-bar { height: 100%; border-radius: 3px; transition: width 0.2s ease; }
+
+  .result-box {
+    text-align: center; padding: 14px;
+    border-radius: 10px; border: 2px solid transparent;
+    font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800;
+    transition: all 0.2s;
+  }
+
+  .legend { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: var(--muted); }
+  .leg-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+  .tip { font-size: 0.62rem; color: var(--muted); text-align: center; line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<h1>KNN — Apple vs Orange</h1>
+<p class="subtitle">Click anywhere to place ❓ — or drag it around — prediction updates live!</p>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#ff4d6d"></div> Apple (training data)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#ff9500"></div> Orange (training data)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#fff"></div> ❓ Your new fruit — drag me!</div>
+</div>
+
+<div class="main">
+  <div class="canvas-wrap" id="wrap">
+    <span class="canvas-label">Feature Space</span>
+    <canvas id="canvas"></canvas>
+    <div class="drag-hint">🖱 Click anywhere to place ❓ — or drag it around</div>
+  </div>
+
+  <div class="sidebar">
+
+    <!-- K -->
+    <div class="panel">
+      <div class="panel-title">K — Neighbours</div>
+      <div class="k-display" id="kDisplay">3</div>
+      <div class="k-sub">neighbours will vote</div>
+      <input type="range" id="kSlider" min="1" max="13" value="3" oninput="changeK(this.value)">
+      <div class="k-hint" id="kHint" style="color:var(--accent)">Odd K avoids ties ✓</div>
+    </div>
+
+    <!-- New fruit position -->
+    <div class="panel">
+      <div class="panel-title">New Fruit Features</div>
+      <div class="coord-row">
+        <span class="coord-label">🎨 Colour Score</span>
+        <span class="coord-val" id="colourVal">—</span>
+      </div>
+      <div class="coord-row">
+        <span class="coord-label">⚖️ Weight</span>
+        <span class="coord-val" id="weightVal">—</span>
+      </div>
+    </div>
+
+    <!-- Votes -->
+    <div class="panel">
+      <div class="panel-title">Neighbour Votes (K=<span id="kLabel">3</span>)</div>
+      <div class="vote-row" id="appleRow" style="color:var(--apple)">
+        <span class="vote-emoji">🍎</span>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between">
+            <span class="vote-label">Apple</span>
+            <span class="vote-count" id="appleCount">0</span>
+          </div>
+          <div class="vote-bar-wrap"><div class="vote-bar" id="appleBar" style="background:var(--apple);width:0%"></div></div>
+        </div>
+      </div>
+      <div class="vote-row" id="orangeRow" style="color:var(--orange)">
+        <span class="vote-emoji">🍊</span>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between">
+            <span class="vote-label">Orange</span>
+            <span class="vote-count" id="orangeCount">0</span>
+          </div>
+          <div class="vote-bar-wrap"><div class="vote-bar" id="orangeBar" style="background:var(--orange);width:0%"></div></div>
+        </div>
+      </div>
+      <div class="result-box" id="resultBox" style="border-color:var(--border);color:var(--muted);font-size:0.85rem">
+        drag the ❓ fruit to predict
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="tip">
+  Drag ❓ near the 🍎 cluster → Apple wins &nbsp;|&nbsp; Drag near 🍊 cluster → Orange wins<br>
+  Drag to the middle → see how K affects the result!<br>
+  Try <strong style="color:var(--accent)">K=4</strong> in the middle to get a tie!
+</p>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+let W, H;
+
+const PAD = 45;
+const FX_MIN = 0, FX_MAX = 11;   // colour score
+const FY_MIN = 120, FY_MAX = 210; // weight
+
+const training = [
+  // Apples — high colour (7-9), heavier (160-195)
+  {fx:7.5, fy:182, label:0}, {fx:8.2, fy:167, label:0},
+  {fx:7.0, fy:190, label:0}, {fx:8.8, fy:175, label:0},
+  {fx:6.5, fy:185, label:0}, {fx:9.0, fy:160, label:0},
+  {fx:7.8, fy:172, label:0}, {fx:8.4, fy:195, label:0},
+  // Oranges — low colour (1-4), lighter (135-160)
+  {fx:2.5, fy:142, label:1}, {fx:1.8, fy:155, label:1},
+  {fx:3.2, fy:148, label:1}, {fx:2.0, fy:138, label:1},
+  {fx:3.8, fy:152, label:1}, {fx:1.5, fy:145, label:1},
+  {fx:2.8, fy:158, label:1}, {fx:3.5, fy:136, label:1},
+];
+
+// New fruit starts in the middle
+let newFruit = {fx: 5.5, fy: 165};
+let K = 3;
+let dragging = false;
+
+function toCanvas(fx, fy) {
+  const x = PAD + (fx - FX_MIN) / (FX_MAX - FX_MIN) * (W - PAD*2);
+  const y = (H - PAD) - (fy - FY_MIN) / (FY_MAX - FY_MIN) * (H - PAD*2);
+  return {x, y};
+}
+
+function toFeature(cx, cy) {
+  const fx = FX_MIN + (cx - PAD) / (W - PAD*2) * (FX_MAX - FX_MIN);
+  const fy = FY_MIN + ((H - PAD) - cy) / (H - PAD*2) * (FY_MAX - FY_MIN);
+  return {
+    fx: Math.max(FX_MIN+0.1, Math.min(FX_MAX-0.1, fx)),
+    fy: Math.max(FY_MIN+1, Math.min(FY_MAX-1, fy))
+  };
+}
+
+function canvasDist(a, b) {
+  const ca = toCanvas(a.fx, a.fy);
+  const cb = toCanvas(b.fx, b.fy);
+  return Math.hypot(ca.x-cb.x, ca.y-cb.y);
+}
+
+function resize() {
+  const rect = wrap.getBoundingClientRect();
+  if (!rect.width) return;
+  W = rect.width; H = rect.width;
+  canvas.width = W; canvas.height = H;
+  wrap.style.height = H + 'px';
+  drawAll();
+}
+window.addEventListener('resize', resize);
+setTimeout(resize, 150);
+
+function getNeighbours() {
+  return training
+    .map(p => ({p, d: canvasDist(newFruit, p)}))
+    .sort((a,b) => a.d-b.d)
+    .slice(0, Math.min(K, training.length))
+    .map(s => s.p);
+}
+
+function drawAll() {
+  if (!W || !H || W<=0 || H<=0) return;
+  ctx.clearRect(0,0,W,H);
+
+  // Background decision regions (fast pixel sampling)
+  const step = 5;
+  for (let cy=PAD; cy<H-PAD; cy+=step) {
+    for (let cx=PAD; cx<W-PAD; cx+=step) {
+      const f = toFeature(cx, cy);
+      const sorted = training.map(p => ({p, d: Math.hypot(
+        (toCanvas(p.fx,p.fy).x - cx), (toCanvas(p.fx,p.fy).y - cy)
+      )})).sort((a,b)=>a.d-b.d).slice(0,K);
+      const votes = [0,0];
+      sorted.forEach(s=>votes[s.p.label]++);
+      const winner = votes[0]>votes[1]?0:votes[1]>votes[0]?1:-1;
+      if (winner===0) ctx.fillStyle='rgba(255,77,109,0.10)';
+      else if (winner===1) ctx.fillStyle='rgba(255,149,0,0.10)';
+      else ctx.fillStyle='rgba(255,255,255,0.04)';
+      ctx.fillRect(cx,cy,step,step);
+    }
+  }
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+  for (let i=0;i<=10;i++) {
+    const x=PAD+i/10*(W-PAD*2);
+    ctx.beginPath(); ctx.moveTo(x,PAD); ctx.lineTo(x,H-PAD); ctx.stroke();
+    const y=PAD+i/10*(H-PAD*2);
+    ctx.beginPath(); ctx.moveTo(PAD,y); ctx.lineTo(W-PAD,y); ctx.stroke();
+  }
+
+  // Axis labels
+  ctx.fillStyle='rgba(255,255,255,0.2)';
+  ctx.font=`${Math.max(9,W*0.021)}px Space Mono`;
+  ctx.textAlign='center';
+  for (let i=1;i<=10;i++) {
+    const {x}=toCanvas(i,FY_MIN); ctx.fillText(i,x,H-PAD+16);
+  }
+  ctx.textAlign='right';
+  for (let w=130;w<=200;w+=10) {
+    const {y}=toCanvas(FX_MIN,w); ctx.fillText(w+'g',PAD-6,y+4);
+  }
+
+  // Axis titles
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.font=`${Math.max(9,W*0.021)}px Space Mono`;
+  ctx.textAlign='center';
+  ctx.fillText('← Colour Score (orange side)    (apple side) →', W/2, H-4);
+  ctx.save(); ctx.translate(12, H/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('Weight (grams)', 0, 0); ctx.restore();
+
+  // Get neighbours
+  const neighbours = getNeighbours();
+  const nearestRadius = canvasDist(newFruit, neighbours[neighbours.length-1]) + 8;
+  const nf = toCanvas(newFruit.fx, newFruit.fy);
+
+  // Draw expanding circle
+  ctx.beginPath();
+  ctx.arc(nf.x, nf.y, nearestRadius, 0, Math.PI*2);
+  ctx.strokeStyle='rgba(0,255,224,0.5)';
+  ctx.lineWidth=2; ctx.setLineDash([6,4]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(0,255,224,0.04)'; ctx.fill();
+
+  // Lines to neighbours
+  neighbours.forEach((n,i) => {
+    const p = toCanvas(n.fx, n.fy);
+    ctx.beginPath(); ctx.moveTo(nf.x,nf.y); ctx.lineTo(p.x,p.y);
+    ctx.strokeStyle = n.label===0?'rgba(255,77,109,0.5)':'rgba(255,149,0,0.5)';
+    ctx.lineWidth=1.5; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+
+    // Distance label
+    const mx=(nf.x+p.x)/2, my=(nf.y+p.y)/2;
+    const d=Math.round(canvasDist(newFruit,n));
+    ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.font=`${Math.max(8,W*0.018)}px Space Mono`;
+    ctx.textAlign='center';
+    ctx.fillText(d,mx,my-3);
+  });
+
+  // Training points
+  training.forEach(p => {
+    const {x,y}=toCanvas(p.fx,p.fy);
+    const isN = neighbours.includes(p);
+    const col = p.label===0?'#ff4d6d':'#ff9500';
+
+    if (isN && isFinite(x) && isFinite(y)) {
+      const g=ctx.createRadialGradient(x,y,0,x,y,22);
+      g.addColorStop(0,col+'77'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.fill();
+    }
+
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(x,y,isN?10:7,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#0a0a0f'; ctx.lineWidth=2; ctx.stroke();
+
+    ctx.font=`${Math.max(12,W*0.033)}px serif`;
+    ctx.textAlign='center';
+    ctx.fillText(p.label===0?'🍎':'🍊', x, y-13);
+
+    if (isN) {
+      const idx=neighbours.indexOf(p)+1;
+      ctx.fillStyle='#fff';
+      ctx.font=`bold ${Math.max(8,W*0.02)}px Space Mono`;
+      ctx.textAlign='left';
+      ctx.fillText('#'+idx, x+11, y-2);
+    }
+  });
+
+  // New fruit dot
+  if (!isFinite(nf.x) || !isFinite(nf.y)) return;
+  const g2=ctx.createRadialGradient(nf.x,nf.y,0,nf.x,nf.y,30);
+  g2.addColorStop(0,'rgba(255,255,255,0.25)'); g2.addColorStop(1,'transparent');
+  ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(nf.x,nf.y,30,0,Math.PI*2); ctx.fill();
+
+  ctx.fillStyle='#ffffff';
+  ctx.beginPath(); ctx.arc(nf.x,nf.y,11,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#888'; ctx.lineWidth=2; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.font=`${Math.max(14,W*0.038)}px serif`;
+  ctx.textAlign='center';
+  ctx.fillText('❓', nf.x, nf.y-15);
+
+  // Update sidebar
+  updateSidebar(neighbours);
+}
+
+function updateSidebar(neighbours) {
+  const appleV = neighbours.filter(n=>n.label===0).length;
+  const orangeV = neighbours.filter(n=>n.label===1).length;
+
+  document.getElementById('appleCount').textContent = appleV;
+  document.getElementById('orangeCount').textContent = orangeV;
+  document.getElementById('appleBar').style.width = (appleV/K*100)+'%';
+  document.getElementById('orangeBar').style.width = (orangeV/K*100)+'%';
+  document.getElementById('colourVal').textContent = newFruit.fx.toFixed(1);
+  document.getElementById('weightVal').textContent = Math.round(newFruit.fy)+'g';
+
+  const appleRow = document.getElementById('appleRow');
+  const orangeRow = document.getElementById('orangeRow');
+  const resultBox = document.getElementById('resultBox');
+
+  if (appleV > orangeV) {
+    appleRow.style.borderColor='var(--apple)';
+    orangeRow.style.borderColor='var(--border)';
+    resultBox.style.borderColor='var(--apple)';
+    resultBox.style.color='var(--apple)';
+    resultBox.style.fontSize='1.5rem';
+    resultBox.innerHTML='🍎 Apple!';
+  } else if (orangeV > appleV) {
+    orangeRow.style.borderColor='var(--orange)';
+    appleRow.style.borderColor='var(--border)';
+    resultBox.style.borderColor='var(--orange)';
+    resultBox.style.color='var(--orange)';
+    resultBox.style.fontSize='1.5rem';
+    resultBox.innerHTML='🍊 Orange!';
+  } else {
+    appleRow.style.borderColor='var(--border)';
+    orangeRow.style.borderColor='var(--border)';
+    resultBox.style.borderColor='#aaa';
+    resultBox.style.color='#aaa';
+    resultBox.style.fontSize='1rem';
+    resultBox.innerHTML='🤝 Tie! Try odd K';
+  }
+}
+
+function changeK(v) {
+  K = parseInt(v);
+  document.getElementById('kDisplay').textContent = K;
+  document.getElementById('kLabel').textContent = K;
+  const hint = document.getElementById('kHint');
+  if (K%2===0) { hint.style.color='var(--orange)'; hint.textContent='⚠ Even K can cause ties!'; }
+  else { hint.style.color='var(--accent)'; hint.textContent='Odd K avoids ties ✓'; }
+  drawAll();
+}
+
+// Drag logic
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { cx: (clientX-rect.left)*scaleX, cy: (clientY-rect.top)*scaleY };
+}
+
+function isNearNew(cx, cy) {
+  const {x,y}=toCanvas(newFruit.fx,newFruit.fy);
+  return Math.hypot(cx-x,cy-y) < 28;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const {cx,cy}=getPos(e);
+  if (isNearNew(cx,cy)) {
+    dragging=true; canvas.style.cursor='grabbing';
+  } else {
+    // Click anywhere to place new fruit
+    const f=toFeature(cx,cy);
+    newFruit.fx=f.fx; newFruit.fy=f.fy;
+    drawAll();
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  const {cx,cy}=getPos(e);
+  if (dragging) {
+    const f=toFeature(cx,cy);
+    newFruit.fx=f.fx; newFruit.fy=f.fy;
+    drawAll();
+  } else {
+    canvas.style.cursor = isNearNew(cx,cy) ? 'grab' : 'crosshair';
+  }
+});
+canvas.addEventListener('mouseup', ()=>{ dragging=false; canvas.style.cursor='crosshair'; });
+canvas.addEventListener('mouseleave', ()=>{ dragging=false; });
+
+// Touch
+canvas.addEventListener('touchstart', e=>{ e.preventDefault(); const {cx,cy}=getPos(e); if(isNearNew(cx,cy)) { dragging=true; } else { const f=toFeature(cx,cy); newFruit.fx=f.fx; newFruit.fy=f.fy; drawAll(); } },{passive:false});
+canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!dragging) return; const {cx,cy}=getPos(e); const f=toFeature(cx,cy); newFruit.fx=f.fx; newFruit.fy=f.fy; drawAll(); },{passive:false});
+canvas.addEventListener('touchend', ()=>{ dragging=false; });
+
+drawAll();
+</script>
+</body>
+</html>
