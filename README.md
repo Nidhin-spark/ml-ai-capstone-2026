@@ -23,3 +23,7 @@ The project aims to apply core machine learning concepts to a real-world problem
 ## Project Status
 🟡 Work in progress – this repository will be updated throughout the capstone project.
 
+
+
+- [Datasheet](./DATASHEET.md)
+- [Model Card](./MODEL_CARD.md)
