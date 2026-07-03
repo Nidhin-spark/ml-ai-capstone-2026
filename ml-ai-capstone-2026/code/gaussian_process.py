@@ -4,6 +4,7 @@ from scipy.spatial.distance import cdist
 class SimpleGaussianProcess:
     """Minimal Gaussian Process for BBO."""
     
+    
     def __init__(self, length_scale=0.2, noise=0.01):
         self.X = None
         self.y = None
