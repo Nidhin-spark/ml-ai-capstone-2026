@@ -3,6 +3,7 @@
 ## Overview
 13 weeks of black-box function optimization. 8 functions, 2D to 8D dimensionality, total 104 queries.
 
+
 ## Functions
 | Function | Dimension | Type | Best Found |
 |----------|-----------|------|-----------|
@@ -14,6 +15,7 @@
 | F6 | 5D | Recipe optimization | -0.47 |
 | F7 | 6D | Hyperparameter tuning | 0.825 |
 | F8 | 8D | High-dimensional | 9.79 |
+
 
 ## Data Format
 - Inputs: [0,1] normalized parameters per function dimension
