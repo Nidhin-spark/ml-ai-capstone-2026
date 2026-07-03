@@ -4,6 +4,7 @@ import os
 from gaussian_process import SimpleGaussianProcess
 from ucb_acquisition import UCB
 
+
 class BayesianOptimizer:
     """Main optimization loop."""
     
