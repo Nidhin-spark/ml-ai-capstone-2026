@@ -14,11 +14,13 @@ Optimized 8 unknown functions over 13 weeks using Bayesian optimization with Gau
 **Weeks 4-9:** Adaptive learning - used Gaussian Process to predict good regions, different β values per function.
 **Weeks 10-13:** Exploitation - locked into high-ROI functions, refined uncertainties.
 
+
 ## Repository Structure
 - `code/`: Python implementation (GP, UCB, optimizer)
 - `data/`: Week-by-week inputs and outputs
 - `notebooks/`: 13 Jupyter notebooks with analysis
 - `results/`: Performance summaries
+- 
 
 ## Key Learning
 Started with random exploration, evolved to systematic GP-guided strategy. Learned early that treating each function differently (not one-size-fits-all) made a real difference in results.
