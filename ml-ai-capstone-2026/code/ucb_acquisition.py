@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class UCB:
     """Upper Confidence Bound acquisition function."""
     
